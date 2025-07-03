@@ -1,60 +1,85 @@
 import React, { useEffect, useReducer } from "react";
-import { APIII } from "./api";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { APIII, StudentOrderAPI } from "./api";
 import {
   Login,
+  Register,
   AttendanceForm,
   DisplayRecords,
   Logout,
-  Register,
   Searchrecords,
   BulkAttendanceCreate,
   BulkAttendanceUpdate,
   AddStudent,
-  DownloadAttendanceSheet
-} from './components/exports.js'; 
+  DownloadAttendanceSheet,
+} from './components/exports.js';
+import DragDropBoard from "./components/dragdrop";
+import { initialState, reducer } from "./reducer";
 import { AddRecord, deleterecord, editiddata, fetchRecords } from "./logic/attendance";
 import { fetchingstudents } from "./logic/student";
-import { initialState, reducer } from "./reducer";
 import { BigContainer, Title } from "./styles/StyledComponents";
 
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-useEffect(() => {
-  const fetchStudents = async () => {
-    try {
-      const res = await fetchingstudents()
-      dispatch({ type: "SET_STUDENTS", students: res.data });
-    } catch (error) {
-      throw new Error(`Failed to fetch students: ${error.message}`);
-    }
-  };
+  useEffect(() => {
+    const checkLoginStatus = async () => {
+      const access = localStorage.getItem("access");
 
-  if (state.islogedin) {
-    fetchData();
-    fetchStudents(); 
-  }
-}, [state.islogedin]);
+      if (access) {
+        try {
+          dispatch({ type: "Login" });
+        } catch (error) {
+          if (error.response.status === 401) {
+            const refresh = localStorage.getItem("refresh");
+            try {
+              const refres = await APIII.post("/token/refresh/", { refresh });
+              localStorage.setItem("access", refres.data.access);
+              localStorage.setItem("refresh", refres.data.refresh);
+              dispatch({ type: "Login" });
+            } catch {
+              localStorage.removeItem("access");
+              localStorage.removeItem("refresh");
+              dispatch({ type: "Logout" });
+            }
+          }
+        }
+      }
+      dispatch({ type: "SET_LOADING", loading: false }); 
+    };
 
+    checkLoginStatus();
+  }, []);
 
   useEffect(() => {
-    APIII.get("/csrf/");
-  }, []);
+    const fetchStudents = async () => {
+      try {
+        const res = await fetchingstudents();
+        dispatch({ type: "SET_STUDENTS", students: res.data });
+      } catch (error) {
+        console.error("Failed to fetch students:", error);
+      }
+    };
+
+    if (state.islogedin) {
+      fetchData();
+      fetchStudents();
+    }
+  }, [state.islogedin]);
 
   const fetchData = async () => {
     try {
       const res = await fetchRecords();
       dispatch({ type: "SET_RECORDS", records: res });
     } catch (error) {
-      throw new Error(`Failed to fetch records: ${error.message}`);
+      console.error("Failed to fetch records:", error);
     }
   };
 
   const handlesubmit = async (e) => {
     e.preventDefault();
-
     const data = {
-      student_id: state.student_id, 
+      student_id: state.student_id,
       date: state.date,
       status: state.status,
     };
@@ -70,7 +95,7 @@ useEffect(() => {
       dispatch({ type: "HANDLE_SUBMIT", student_id: "", date: "", status: "Present" });
       fetchData();
     } catch (error) {
-      throw new Error(`Failed to submit data: ${error.message}`);
+      console.error("Failed to submit data:", error);
     }
   };
 
@@ -79,14 +104,14 @@ useEffect(() => {
       await deleterecord(id);
       fetchData();
     } catch (error) {
-      throw new Error(`Failed to delete record: ${error.message}`);
+      console.error("Failed to delete record:", error);
     }
   };
 
   const handleEdit = (record) => {
     dispatch({
       type: "EDIT_HANDLE",
-      student_id: record.student, 
+      student_id: record.student,
       date: record.date,
       status: record.status,
       editid: record.id,
@@ -94,55 +119,79 @@ useEffect(() => {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
     dispatch({ type: "LOGOUT", records: [], islogedin: false });
   };
+// const handleLogout = () => {
+  //   dispatch({ type: "LOGOUT", records: [], islogedin: false });
+  // };
+  const Dashboard = () => (
+    <>
+      <Title>Attendance App</Title>
+      <Logout handleLogout={handleLogout} />
+      <DownloadAttendanceSheet />
+      <AddStudent onStudentAdded={fetchData} />
+      <BulkAttendanceUpdate
+        student_id={state.student_id}
+        students={state.students}
+        fetchData={fetchData}
+      />
+      <BulkAttendanceCreate
+        student_id={state.student_id}
+        students={state.students}
+        fetchData={fetchData}
+      />
+      <Searchrecords />
+      <AttendanceForm
+        student_id={state.student_id}
+        date={state.date}
+        status={state.status}
+        editid={state.editid}
+        students={state.students}
+        setField={(field, value) => dispatch({ type: "SET_FIELDS", field, value })}
+        handlesubmit={handlesubmit}
+      />
+      <DisplayRecords
+        records={state.records}
+        students={state.students}
+        handleDelete={handleDelete}
+        handleEdit={handleEdit}
+      />
+    </>
+  );
+
+  const ProtectedRoute = ({ children }) => {
+    return state.islogedin ? children : <Navigate to="/login" />;
+  };
+
+  if (state.loading) return <p>Loading</p>; 
 
   return (
-    <BigContainer style={{ padding: "20px" }}>
-      {!state.islogedin ? (
-        <>
-          <Login dispatch={dispatch} />
-          <Register />
-        </>
-      ) : (
-        <>
-          <Title>Attendance App</Title>
-          <Logout handleLogout={handleLogout} />
-          <DownloadAttendanceSheet />
-          <AddStudent onStudentAdded={fetchData} />
-          <BulkAttendanceUpdate 
-          student_id={state.student_id}
-              students={state.students}
-              fetchData={fetchData}/>
-           <BulkAttendanceCreate 
-              student_id={state.student_id}
-              students={state.students}
-              fetchData={fetchData}
-              />
-          
-          <Searchrecords /> 
-          <AttendanceForm
-              student_id={state.student_id}
-              date={state.date}
-              status={state.status}
-              editid={state.editid}
-              students={state.students}
-              setField={(field, value) =>
-              dispatch({ type: "SET_FIELDS", field, value })
-              }
-              handlesubmit={handlesubmit}
-            />
-
-          <DisplayRecords
-              records={state.records}
-              students={state.students}
-              handleDelete={handleDelete}
-              handleEdit={handleEdit}
+    <Router>
+      <BigContainer style={{ padding: "20px" }}>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
           />
-
-        </>
-      )}
-    </BigContainer>
+          <Route path="/login" element={<Login dispatch={dispatch} />} />
+          <Route path="/register" element={<Register />} />
+          <Route
+            path="/dragdrop"
+            element={
+              <ProtectedRoute>
+                <DragDropBoard />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </BigContainer>
+    </Router>
   );
 }
 

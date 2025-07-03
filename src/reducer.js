@@ -3,12 +3,13 @@ const today = new Date().toISOString().split("T")[0];
 
 export const initialState = {
   islogedin: false,
+  loading:true,
   records: [],
   studentname: "",
   date: today,
   status: "Present",
   editid: null,
-  students: []
+  students: [],
 };
 
 
@@ -54,6 +55,8 @@ export const reducer=(state,action)=>{
             return { ...state, [action.field]: action.value };
         case "SET_STUDENTS":
             return { ...state, students: action.students };
+        case "SET_LOADING":
+            return { ...state, loading: action.loading };
         default:
             return state;
     }

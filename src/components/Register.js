@@ -5,11 +5,12 @@ import { Button, Container, Form, Input, Title } from '../styles/StyledComponent
 const Register = () => {
     const [username,setusername]=useState('')
     const [password,setpassword]=useState('')
+    const [email,setemail]=useState('')
 
     const handlesubmit=async(e)=>{
         e.preventDefault();
         try {
-            const res=await registeruser(username,password)
+            const res=await registeruser(username,password,email)
         alert(res.data)
         } catch (error) {
             alert("Registeration Failed!");
@@ -32,6 +33,13 @@ const Register = () => {
             type='password'
             value={password}
             onChange={(e)=>setpassword(e.target.value)}
+            required></Input>
+
+            <Input
+            placeholder='Enter Email : '
+            type='email'
+            value={email}
+            onChange={(e)=>setemail(e.target.value)}
             required></Input>
 
             <Button type='submit'>Register</Button>

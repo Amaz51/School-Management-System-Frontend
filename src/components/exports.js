@@ -8,8 +8,9 @@ import BulkAttendanceCreate from "./BulkAttendanceCreate";
 import BulkAttendanceUpdate from "./BulkAttendanceUpdate";
 import AddStudent from "./Addstudent";
 import DownloadAttendanceSheet from "./Downloadsheet";
-
+import DragDropBoard from "./dragdrop";
 export {
+  DragDropBoard,
   Login,
   AttendanceForm,
   DisplayRecords,
